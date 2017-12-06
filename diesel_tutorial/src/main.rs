@@ -18,12 +18,13 @@ pub mod schema {
 
 use schema::*;
 
-#[derive(Queryable, Insertable)]
+#[derive(Queryable, Insertable, Identifiable)]
 #[table_name = "tag"]
+#[primary_key(tag_id)]
 pub struct Tag {
     pub tag_id: i16,
     pub tag_name: String,
-}
+} 
 
 pub fn establish_connection() -> MysqlConnection {
     dotenv().ok();
@@ -58,18 +59,36 @@ pub fn insert_tag(db_connection: &MysqlConnection, tag_id_val: i16, tag_name_val
         .expect("Error inserting");
 }
 
+fn update_tag(db_connection : &MysqlConnection, id : i16, new_value : String){
+    diesel::update(tag::table.find(id))
+        .set(tag::tag_name.eq(new_value))
+        .execute(db_connection);
+}
+
+pub fn delete_tag(db_connection : &MysqlConnection, tag_id_val: i16){
+    diesel::delete(tag::table.find(tag_id_val))
+        .execute(db_connection);
+
+}
+
 fn main() {
     let db_connection = establish_connection();
 
+    // 1. query data from the table
     read_and_output(&db_connection);
 
-    // create a new tag and insert it
-    let tag_id: i16 = 23;
-    let tag_name: String = String::from("basketball");
-
+    // 2. insert new data into the table
+    let tag_id: i16 = 777;
+    let tag_name: String = String::from("educational");
     insert_tag(&db_connection, tag_id, tag_name);
+    read_and_output(&db_connection);
 
-    // let's check if our insert has been succesful
+    // 3. update existing data
+    update_tag(&db_connection, tag_id, String::from("science"));
+    read_and_output(&db_connection);
+
+    // 4. delete data from the table
+    delete_tag(&db_connection, tag_id);
     read_and_output(&db_connection);
 
 }
