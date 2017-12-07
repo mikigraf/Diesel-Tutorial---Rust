@@ -9,6 +9,13 @@ extern crate dotenv;
 
 use diesel::prelude::*;
 use diesel::mysql::MysqlConnection;
+use diesel::sql_query;
+use diesel::result::QueryResult;
+use std::vec::Vec;
+use diesel::expression::sql_literal::sql;
+use diesel::dsl::count;
+use diesel::expression::count::Count;
+
 use dotenv::dotenv;
 use std::env;
 
@@ -18,7 +25,7 @@ pub mod schema {
 
 use schema::*;
 
-#[derive(Queryable, Insertable, Identifiable)]
+#[derive(Queryable, Insertable, Identifiable, QueryableByName)]
 #[table_name = "tag"]
 #[primary_key(tag_id)]
 pub struct Tag {
@@ -71,24 +78,50 @@ pub fn delete_tag(db_connection : &MysqlConnection, tag_id_val: i16){
 
 }
 
+pub fn select_n_1(db_connection: &MysqlConnection, n: i8){
+    let n: String = n.to_string();
+    let query = format!("SELECT * FROM tag.tag LIMIT {},1",n);
+    let users: QueryResult<Vec<Tag>>  = sql_query(query).load(db_connection);
+    match users {
+    Ok(v) => {
+        for tag in &v {
+            println!("working with version: {:?}", tag.tag_name)
+        }
+    },
+    Err(e) => println!("error parsing header: {:?}", e),
+    }
+}
+
 fn main() {
     let db_connection = establish_connection();
-
+    
     // 1. query data from the table
     read_and_output(&db_connection);
 
     // 2. insert new data into the table
-    let tag_id: i16 = 777;
-    let tag_name: String = String::from("educational");
+    let tag_id: i16 = 345;
+    let tag_name: String = String::from("vlog");
     insert_tag(&db_connection, tag_id, tag_name);
     read_and_output(&db_connection);
 
     // 3. update existing data
-    update_tag(&db_connection, tag_id, String::from("science"));
+    update_tag(&db_connection, tag_id, String::from("travel"));
     read_and_output(&db_connection);
 
     // 4. delete data from the table
     delete_tag(&db_connection, tag_id);
     read_and_output(&db_connection);
+
+    // 5. Custom SQL, counting and batchwise
+    let table_size: i8 = sql("select count(*) from tag.tag")
+    .get_result(&db_connection)
+    .expect("Error executing raw SQL");
+
+    let mut x = 0;
+    while x < table_size {
+        select_n_1(&db_connection, x);
+        println!("End of iteration");
+        x = x + 1;
+    }
 
 }
